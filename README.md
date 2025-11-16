@@ -43,7 +43,7 @@ FINANCIAL_NLP_PROJECT/
 └── requirements.txt
 ```
 
-<br> 
+
 ## 4.模型训练
 
 ### 4.1 数据清洗
