@@ -47,6 +47,39 @@ FINANCIAL_NLP_PROJECT/
 
 ### 4.1 数据清洗
 
+数据来自 HuggingFace 的 Financial PhraseBank，其中的 Sentences_AllAgree 文件包含了标注一致性最高的金融文本样本。每条数据的格式如下：
+
+```bash
+"Construction volumes meanwhile grow at a rate of 10-15 percent annually .@positive"
+```
+文本内容紧接一个情感标签（@positive / @negative / @neutral）。
+<br> 
+<img width="865" height="734" alt="image" src="https://github.com/user-attachments/assets/b0e89825-80a3-41d6-8918-617ebdffd18d" />
+<br> 
+数据准备脚本（data_preparation.py）完成了以下任务：
+逐行解析原始 TXT 文件
+
+- 移除标签标记（@positive / @negative / @neutral）
+
+- 生成标准化结构：text、label 两列
+
+- 转换为模型可直接使用的DataFrame 结构化数据
+
+- 按 80/20 进行分层切分成80% → 训练集（train.csv）、20% → 验证集（val.csv）
+
+最终生成：
+
+```bash
+data/train.csv
+data/val.csv
+```
+
+<img width="865" height="205" alt="image" src="https://github.com/user-attachments/assets/c20607f7-79c2-469b-84b3-957d3b33aada" />
+<br> 
+
+
+
+
 ### 4.2 模型训练
 
 ### 4.3 模型推理
