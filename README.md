@@ -20,6 +20,7 @@ CI/CD 自动部署（Jenkins + Harbor）
 
 ## 3.文件结构
 <br> 
+
 ```bash
 FINANCIAL_NLP_PROJECT/
 ├── data/
@@ -41,6 +42,7 @@ FINANCIAL_NLP_PROJECT/
 ├── Jenkinsfile                  # CI/CD 流水线
 └── requirements.txt
 ```
+
 <br> 
 
 ## 4.模型训练
