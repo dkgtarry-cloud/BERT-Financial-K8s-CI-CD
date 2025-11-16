@@ -128,7 +128,7 @@ model = AutoModelForSequenceClassification.from_pretrained(
 
 - 设置输出类别数量 num_labels=3（即nn.Linear(768, 3)）
 
-设置优化器 optimizer 与学习率调度器 scheduler
+设置优化器 optimizer 与学习率调度器 scheduler。
 
 #### 4.2.3 训练循环
 
@@ -178,8 +178,14 @@ joblib.dump(label_encoder, "model/label_encoder.pkl")
 
 模型推理测试：
 
+```bash
+predict.py 'Xiaomi car sales reach a new high, with users generally expressing high satisfaction'
+```
+
 <img width="865" height="145" alt="image" src="https://github.com/user-attachments/assets/13a5ac9b-648f-4c20-9ba9-1e7074c7b01d" />
+
 <br>
+
 结果符合预期
 
 
