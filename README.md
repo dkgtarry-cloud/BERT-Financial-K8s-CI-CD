@@ -19,7 +19,7 @@ CI/CD 自动部署（Jenkins + Harbor）
 
 
 ## 文件结构
-
+```bash
 FINANCIAL_NLP_PROJECT/
 ├── data/
 │   ├── train.csv
@@ -39,6 +39,7 @@ FINANCIAL_NLP_PROJECT/
 ├── Dockerfile                   # Docker 镜像构建文件
 ├── Jenkinsfile                  # CI/CD 流水线
 └── requirements.txt
+```
 
 
 
