@@ -643,7 +643,166 @@ Running (新 Pod 启动)
 说明 ReplicaSet 自动拉起新的 Pod，验证了 K8s 自愈能力。
 
 <br>
-<img width="865" height="169" alt="image" src="https://github.com/user-attachments/assets/1cf9e2db-b0c1-415d-b8d7-e70aacb453ca" />
+<img width="865" height="169" alt="image" src="https://github.com/user-attachments/assets/ed8532e4-25fb-40b1-a580-327a9a90d507" />
 <br>
-<img width="865" height="211" alt="image" src="https://github.com/user-attachments/assets/821d15d9-fd29-4cb8-a279-1c2ae5ee90b4" />
+<img width="865" height="211" alt="image" src="https://github.com/user-attachments/assets/ea224731-f0ab-4bc5-a76c-09d0ed0ef36e" />
 <br>
+
+
+## 9. CI/CD（Jenkins + Harbor）
+
+通过 Jenkins 流水线实现完整的 CI/CD 流程：
+
+- 自动构建镜像（Build）
+
+- 推送到 Harbor 私有仓库（Push）
+
+- 自动触发 Kubernetes 滚动更新（Deploy）
+
+该流程实现了模型迭代 → 自动部署上线的完整工程能力。
+
+本项目沿用上个项目的 Jenkins/Harbor 环境
+
+### 9.1 Jenkinsfile（完整流水线脚本）
+
+```bash
+pipeline {
+    agent any
+
+    environment {
+        HARBOR_URL = "192.168.0.137:8081"
+        HARBOR_PROJECT = "financial-nlp"
+        IMAGE_NAME = "financial-nlp-api"
+        IMAGE_TAG = "v1"
+    }
+
+    stages {
+
+        stage('Build Image') {
+            steps {
+                sh """
+                    docker build -t ${HARBOR_URL}/${HARBOR_PROJECT}/${IMAGE_NAME}:${IMAGE_TAG} .
+                """
+            }
+        }
+
+        stage('Push Image to Harbor') {
+            steps {
+                withCredentials([usernamePassword(credentialsId: 'harbor-cred', usernameVariable: 'USER', passwordVariable: 'PASS')]) {
+                    sh """
+                        echo $PASS | docker login ${HARBOR_URL} -u $USER --password-stdin
+                        docker push ${HARBOR_URL}/${HARBOR_PROJECT}/${IMAGE_NAME}:${IMAGE_TAG}
+                    """
+                }
+            }
+        }
+
+        stage('Deploy to Kubernetes') {
+            steps {
+                withCredentials([file(credentialsId: 'k8s-config', variable: 'KUBECONFIG')]) {
+                    sh """
+                        kubectl --kubeconfig=$KUBECONFIG rollout restart deployment/financial-nlp-deploy
+                    """
+                }
+            }
+        }
+    }
+}
+```
+
+<br>
+<img width="865" height="361" alt="image" src="https://github.com/user-attachments/assets/0be46f2e-3446-43e9-96d3-e8c8478f90fb" />
+<img width="865" height="387" alt="image" src="https://github.com/user-attachments/assets/349b5f28-5385-4b81-93d1-f3069e849124" />
+<br>
+
+### 9.2 pipeline阶段解析
+（1）Build Image — 构建 Docker 镜像
+
+```bash
+docker build -t 192.168.0.137:8081/financial-nlp/financial-nlp-api:v1 .
+```
+
+功能：
+
+- 从 Dockerfile 构建模型推理服务镜像
+
+- 注入 Flask、模型权重、tokenizer、依赖包
+
+- 镜像 TAG 由 Jenkins 管理（v1、v2… 可迭代）
+
+（2）Push Image to Harbor — 推送镜像
+
+使用 Harbor 凭证（harbor-cred）：
+
+```bash
+USER / PASS
+```
+
+登录 Harbor 并推送：
+
+```bash
+docker push 192.168.0.137:8081/financial-nlp/financial-nlp-api:v1
+```
+
+Harbor UI 中可看到上传成功的镜像：
+
+<br>
+<img width="865" height="407" alt="image" src="https://github.com/user-attachments/assets/9dd86f63-276a-4be1-842f-b29a9b8d6cff" />
+<br>
+
+（3）Deploy to Kubernetes — 自动滚动更新
+
+Jenkins 通过 k8s 凭证（k8s-config）访问集群：
+
+```bash
+kubectl --kubeconfig=$KUBECONFIG rollout restart deployment/financial-nlp-deploy
+```
+
+作用：
+
+- 触发 Deployment 进行滚动更新
+
+- 旧 Pod 逐个 Terminating
+
+- 新版本镜像的 Pod 自动创建
+
+<br>
+<img width="865" height="157" alt="image" src="https://github.com/user-attachments/assets/e8262839-51e6-4b3b-9f4d-b4c786de4c47" />
+<br>
+<img width="865" height="151" alt="image" src="https://github.com/user-attachments/assets/444ff95b-a9d6-48ec-8118-bd2ac885f4b2" />
+<br>
+
+截图显示：
+
+```bash
+Pulled image "192.168.0.137:8081/financial-nlp/financial-nlp-api:v1"
+Started container financial-nlp
+```
+### 9.3 服务验证
+
+```bash
+curl -X POST http://localhost:30500/predict \
+-H "Content-Type: application/json" \
+-d '{"text":"Bank profits drop amid interest rate cuts"}'
+```
+
+返回：
+
+```bash
+{"prediction":"negative","text":"Bank profits drop amid interest rate cuts"}
+```
+
+<br>
+<img width="865" height="46" alt="image" src="https://github.com/user-attachments/assets/bbcd193d-9a4b-417d-9e9f-145680a401c9" />
+<br>
+
+说明：
+
+- 镜像已更新
+
+- 新版本 API 成功运行
+
+- NodePort 访问正常
+
+
+### 
