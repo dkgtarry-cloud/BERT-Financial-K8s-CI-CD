@@ -277,7 +277,7 @@ label_name = label_encoder.inverse_transform([pred])[0]
 
 Dockerfile：
 
-```bash
+```yaml
 FROM python:3.14-slim
 
 WORKDIR /app
@@ -346,7 +346,7 @@ curl -X POST http://127.0.0.1:5000/predict \
 <img width="865" height="53" alt="image" src="https://github.com/user-attachments/assets/e70649bc-59ee-4e60-87ba-19cd64e55ac1" />
 <br>
 
-## 7. 模型推理 API
+## 7. K8s 部署
 
 将训练好的金融文本分类 API 以容器形式部署到 Kubernetes 集群，实现服务化运行与集群级管理。
 
@@ -362,7 +362,7 @@ Deployment 用于定义：
 
 - 资源限制
 
-```bash
+```yaml
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -385,10 +385,10 @@ spec:
           ports:
             - containerPort: 5000
           resources:
-            limits:
+            requests:
               cpu: "500m"
               memory: "1Gi"
-            requests:
+            limits:
               cpu: "1"
               memory: "2Gi"
 ```  
@@ -402,7 +402,7 @@ spec:
 
 通过 NodePort 方式对外暴露 API
 
-```bash
+```yaml
 apiVersion: v1
 kind: Service
 metadata:
@@ -661,11 +661,11 @@ Running (新 Pod 启动)
 
 该流程实现了模型迭代 → 自动部署上线的完整工程能力。
 
-本项目沿用上个项目的 Jenkins/Harbor 环境
+本项目沿用上个项目的 Jenkins/Harbor 环境。
 
 ### 9.1 Jenkinsfile（完整流水线脚本）
 
-```bash
+```yaml
 pipeline {
     agent any
 
@@ -805,4 +805,129 @@ curl -X POST http://localhost:30500/predict \
 - NodePort 访问正常
 
 
-### 
+## 10. 模型服务监控（Prometheus + Grafana）
+
+本节为部署在 Kubernetes 中的 金融文本分类服务 配置系统级监控，包括：
+
+- Pod CPU 使用率
+
+- Pod 内存使用率
+
+- 实时趋势图
+
+多副本（HPA 扩容后）对比展示
+
+监控组件沿用上个项目 Helm 安装的 kube-prometheus-stack（含 Prometheus、Grafana、Alertmanager、NodeExporter）。
+
+### 10.1 检查监控组件
+
+列出现有监控 Pod：
+
+```bash
+kubectl get pods -n monitor
+```
+
+示例输出（与你截图一致）：
+
+```bash
+monitor-grafana-xxxxx               3/3   Running
+monitor-kube-prometheus-st-operator-xxxxx  1/1 Running
+monitor-prometheus-node-exporter-xxxxx    1/1 Running
+prometheus-monitor-kube-prometheus-st-prometheus-0   2/2 Running
+```
+
+<br>
+<img width="865" height="145" alt="image" src="https://github.com/user-attachments/assets/b2cc09f5-2d1e-4eb7-8e2d-2df7b2f18e27" />
+<br>
+
+说明监控系统已正常启动。
+
+### 10.2 访问 Grafana
+
+Grafana 默认在 Kubernetes 内部运行，需要通过端口转发访问：
+
+```bash
+kubectl port-forward -n monitor svc/monitor-grafana 3000:80
+```
+
+访问地址：
+
+```bash
+http://localhost:3000
+```
+默认登录：
+
+- 用户名：admin
+- 密码通过以下命令获取：
+
+```bash
+kubectl get secret -n monitor monitor-grafana -o jsonpath="{.data.admin-password}" | base64 --decode; echo
+```
+
+<br>
+<img width="865" height="99" alt="image" src="https://github.com/user-attachments/assets/dda7eeaf-21c0-4a74-8692-ff8d58b4d7cf" />
+<br>
+
+访问 Prometheus（可选）
+
+```bash
+kubectl port-forward -n monitor svc/monitor-kube-prometheus-st-prometheus 9090:9090
+```
+
+<br>
+<img width="865" height="65" alt="image" src="https://github.com/user-attachments/assets/a076d26a-f0bb-4a35-b992-dfb08980bacf" />
+<br>
+
+
+### 10.3 Grafana 新建 Dashboard
+
+在 Grafana 中：
+
+Dashboard → New Dashboard → Add Panel → 选择 Prometheus 数据源
+
+#### 10.3.1 CPU 使用率（毫核 / mCPU）
+
+使用服务 Pod 标签：
+
+```bash
+app=financial-nlp
+```
+PromQL：
+
+```bash
+kubectl port-forward -n monitor svc/monitor-kube-prometheus-st-prometheus 9090:9090
+```
+说明：
+
+- container_cpu_usage_seconds_total 为 CPU 时间
+
+- rate() 取 2 分钟窗口的变化速率
+
+- *1000 转成 mCPU（毫核）
+
+- 每个 Pod 单独显示趋势
+
+<br>
+<img width="865" height="701" alt="image" src="https://github.com/user-attachments/assets/7a386f9b-7f15-42d4-a9ca-875bb9e71890" />
+<br>
+
+#### 10.3.2 内存使用（MiB）
+
+PromQL：
+
+```bash
+sum(container_memory_usage_bytes{pod=~"financial-nlp-deploy.*", container!="POD"}) 
+by (pod) / 1024 / 1024
+```
+说明：
+
+- container_memory_usage_bytes 为容器内存占用
+
+- 除以 1024² 转成 MiB
+
+- HPA 扩容时，可以观察多个 Pod 的内存使用对比
+
+
+<br>
+  <img width="865" height="678" alt="image" src="https://github.com/user-attachments/assets/3adfd1dc-fcc8-4362-a851-6e537d853b41" />
+<br>
