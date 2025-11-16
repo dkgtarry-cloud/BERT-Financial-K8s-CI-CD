@@ -2,11 +2,11 @@
 
 本项目构建了一个基于 BERT + PyTorch 的金融文本情感分类模型，并通过 Flask API 提供推理服务。模型及服务进一步被封装为 Docker 镜像，最终部署到 Kubernetes 集群，并支持：
 
-自动扩缩容（HPA）
+- 自动扩缩容（HPA）
 
-CI/CD 自动部署（Jenkins + Harbor）
+- CI/CD 自动部署（Jenkins + Harbor）
 
-可观测性监控（Prometheus + Grafana）
+- 可观测性监控（Prometheus + Grafana）
 
 该项目模拟真实企业中的 AI 推理服务全链路工程化流程：
 数据 → 模型训练 → 推理 API → Docker 化 → K8s 部署 → 自动伸缩 → CI/CD → 监控
@@ -181,11 +181,10 @@ joblib.dump(label_encoder, "model/label_encoder.pkl")
 ```bash
 predict.py 'Xiaomi car sales reach a new high, with users generally expressing high satisfaction'
 ```
-
-<img width="865" height="145" alt="image" src="https://github.com/user-attachments/assets/13a5ac9b-648f-4c20-9ba9-1e7074c7b01d" />
-
 <br>
-
+<img width="865" height="145" alt="image" src="https://github.com/user-attachments/assets/13a5ac9b-648f-4c20-9ba9-1e7074c7b01d" />
+<br>
+<br>
 结果符合预期
 
 
