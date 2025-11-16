@@ -1,0 +1,31 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: financial-nlp-deploy
+  labels:
+    app: financial-nlp
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: financial-nlp
+  template:
+    metadata:
+      labels:
+        app: financial-nlp
+    spec:
+      imagePullSecrets:
+      - name: harbor-secret
+      containers:
+      - name: financial-nlp
+        image: 192.168.0.137:8081/financial-nlp/financial-nlp-api:v1
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 5000
+        resources:
+          requests:
+            cpu: "500m"
+            memory: "1Gi"
+          limits:
+            cpu: "1"
+            memory: "2Gi"
