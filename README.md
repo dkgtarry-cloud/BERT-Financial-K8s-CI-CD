@@ -183,12 +183,163 @@ predict.py 'Xiaomi car sales reach a new high, with users generally expressing h
 ```
 <br>
 <img width="865" height="145" alt="image" src="https://github.com/user-attachments/assets/13a5ac9b-648f-4c20-9ba9-1e7074c7b01d" />
+
 <br>
+
+结果符合预期。
 <br>
-结果符合预期
+
+## 5.模型推理 API
+
+本项目使用 Flask 封装 BERT 文本分类模型，提供 REST 风格推理接口，实现在线预测能力。
+
+推理代码位于 app.py。
+
+### 5.1 模型加载逻辑
+
+推理服务启动时会加载三个核心组件：
+
+1）Tokenizer（文本编码器）
+
+来自与训练一致的预训练模型：
+
+```bash
+tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
+```
+
+用于将用户输入的文本转成：
+
+- input_ids
+
+- attention_mask
+
+2）标签编码器（label encoder）
+
+用于将预测的数字类别映射回文字标签（positive / negative / neutral）
+
+3）模型结构 + 训练权重
+
+推理时重新构建与训练阶段一致的 BERT 结构：
+
+```bash
+config = BertConfig.from_pretrained(MODEL_NAME, num_labels=3)
+model = BertForSequenceClassification(config)
+model.load_state_dict(torch.load("model/model.pth", map_location="cpu"))
+model.eval()
+```
+
+流程：
+
+- 先构建一个新的 BERT 分类模型结构
+
+- 再加载训练阶段保存的权重（model.pth）
+
+- model.eval() 关闭 dropout，使推理稳定
 
 
+### 5.2 推理接口
 
+API 格式：
+
+- 方法：POST
+
+- 路径：/predict
+
+- 输入 JSON：
+
+```bash
+{
+  "text": "Li Auto Automobile sales have broken through a new high..."
+}
+```
+
+- 返回 JSON：
+
+```bash
+{
+  "text": "Li Auto Automobile sales have broken through a new high...",
+  "prediction": "positive"
+}
+```
+推理逻辑：
+
+```bash
+inputs = tokenizer(text, return_tensors="pt", truncation=True, padding=True)
+outputs = model(**inputs)
+pred = torch.argmax(outputs.logits, dim=1).item()
+label_name = label_encoder.inverse_transform([pred])[0]
+```
+
+### 5.3 Docker 部署
+
+Dockerfile：
+
+```bash
+FROM python:3.14-slim
+
+WORKDIR /app
+COPY . .
+
+RUN pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu && \
+    pip install flask transformers joblib scikit-learn requests
+
+EXPOSE 5000
+CMD ["python", "app.py"]
+```
+
+说明：
+
+- 基于官方 Python slim 镜像
+
+- 安装 CPU 版本 PyTorch（轻量且适合 API 推理）
+
+- 安装 Flask、Transformers 等依赖
+
+- 默认启动 Flask API
+
+### 5.4 构建与运行 Docker
+
+1）构建镜像
+
+```bash
+docker build -t financial-nlp-api:v1 .
+```
+
+<img width="865" height="312" alt="image" src="https://github.com/user-attachments/assets/48c0cc61-4c48-4c4f-a873-5928d18569d4" />
+<br>
+
+构建成功
+
+2）运行容器
+```bash
+docker run -d -p 5000:5000 financial-nlp-api:v1
+```
+
+<img width="865" height="35" alt="image" src="https://github.com/user-attachments/assets/d647c1d9-5b3c-4ea9-b433-fdc9c742e467" />
+
+<img width="865" height="24" alt="image" src="https://github.com/user-attachments/assets/0117aba9-4412-469c-8e45-4e806982cc3d" />
+<br>
+
+3）测试容器服务
+
+中性新闻示例
+
+```bash
+curl -X POST http://127.0.0.1:5000/predict \
+-H "Content-Type: application/json" \
+-d '{"text":"This stock looks promising"}'
+```
+
+返回：
+
+```bash
+{"prediction":"neutral","text":"This stock looks promising"}
+```
+
+<img width="865" height="20" alt="image" src="https://github.com/user-attachments/assets/96bb4ae3-675a-4a57-81d7-03ab63ebaf7d" />
+
+
+<img width="865" height="53" alt="image" src="https://github.com/user-attachments/assets/e70649bc-59ee-4e60-87ba-19cd64e55ac1" />
 
 
 
