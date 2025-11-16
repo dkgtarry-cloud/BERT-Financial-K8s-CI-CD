@@ -14,6 +14,7 @@
 
 ## 2. 项目架构
 
+<br>
 <img width="1536" height="1024" alt="image" src="https://github.com/user-attachments/assets/dfafd0ee-0200-4f62-ac07-62245c874823" />
 <br> 
 
@@ -75,6 +76,7 @@ data/train.csv
 data/val.csv
 ```
 
+<br>
 <img width="865" height="205" alt="image" src="https://github.com/user-attachments/assets/c20607f7-79c2-469b-84b3-957d3b33aada" />
 <br> 
 
@@ -160,6 +162,7 @@ acc = (preds == labels).float().mean()
 
 - 验证集准确率
 
+<br>
 <img width="865" height="303" alt="image" src="https://github.com/user-attachments/assets/b518e1b7-da62-4f75-8b12-23d6592abad0" />
 <br>
 
@@ -181,9 +184,9 @@ joblib.dump(label_encoder, "model/label_encoder.pkl")
 ```bash
 predict.py 'Xiaomi car sales reach a new high, with users generally expressing high satisfaction'
 ```
+
 <br>
 <img width="865" height="145" alt="image" src="https://github.com/user-attachments/assets/13a5ac9b-648f-4c20-9ba9-1e7074c7b01d" />
-
 <br>
 
 结果符合预期。
@@ -304,7 +307,7 @@ CMD ["python", "app.py"]
 ```bash
 docker build -t financial-nlp-api:v1 .
 ```
-
+<br>
 <img width="865" height="312" alt="image" src="https://github.com/user-attachments/assets/48c0cc61-4c48-4c4f-a873-5928d18569d4" />
 <br>
 
@@ -314,9 +317,9 @@ docker build -t financial-nlp-api:v1 .
 ```bash
 docker run -d -p 5000:5000 financial-nlp-api:v1
 ```
-
+<br>
 <img width="865" height="35" alt="image" src="https://github.com/user-attachments/assets/d647c1d9-5b3c-4ea9-b433-fdc9c742e467" />
-
+<br>
 <img width="865" height="24" alt="image" src="https://github.com/user-attachments/assets/0117aba9-4412-469c-8e45-4e806982cc3d" />
 <br>
 
@@ -336,13 +339,14 @@ curl -X POST http://127.0.0.1:5000/predict \
 {"prediction":"neutral","text":"This stock looks promising"}
 ```
 
+<br>
 <img width="865" height="20" alt="image" src="https://github.com/user-attachments/assets/96bb4ae3-675a-4a57-81d7-03ab63ebaf7d" />
 
-
+<br>
 <img width="865" height="53" alt="image" src="https://github.com/user-attachments/assets/e70649bc-59ee-4e60-87ba-19cd64e55ac1" />
 <br>
 
-## 7.模型推理 API
+## 7. 模型推理 API
 
 将训练好的金融文本分类 API 以容器形式部署到 Kubernetes 集群，实现服务化运行与集群级管理。
 
@@ -357,8 +361,6 @@ Deployment 用于定义：
 - 容器端口
 
 - 资源限制
-
-- 自动重启策略
 
 ```bash
 apiVersion: apps/v1
@@ -380,7 +382,6 @@ spec:
       containers:
         - name: financial-nlp
           image: financial-nlp-api:v1
-          imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 5000
           resources:
@@ -391,6 +392,11 @@ spec:
               cpu: "1"
               memory: "2Gi"
 ```  
+说明：
+
+- containerPort: 5000 为 Flask API 的端口
+
+- resources 配置为后续 HPA 提供 CPU 指标依据
 
 ### 7.2 Service 配置（service.yaml）
 
@@ -429,6 +435,7 @@ kubectl apply -f deployment.yaml
 kubectl apply -f service.yaml
 ```
 
+<br>
 <img width="865" height="203" alt="image" src="https://github.com/user-attachments/assets/91ac3ec6-9047-4096-a371-1cf44aa409a4" />
 <br>
  
@@ -447,6 +454,7 @@ python app.py
 ReadTimeout: thrown while requesting HEAD https://huggingface.co/...
 ```
 
+<br>
 <img width="865" height="239" alt="image" src="https://github.com/user-attachments/assets/8eaa2c8f-3950-4953-aba3-24d42fa2b766" />
 <br>
 
@@ -455,6 +463,10 @@ ReadTimeout: thrown while requesting HEAD https://huggingface.co/...
 
 解决方案：
 提前将模型/ tokenizer 下载到本地并打包进镜像（通过 Download_model.py 解决）。
+
+<br>
+<img width="865" height="394" alt="image" src="https://github.com/user-attachments/assets/c06f2038-1d55-4906-8d15-a96804a914eb" />
+<br>
 
 ### 7.4 使用 NodePort 本地访问服务
 
@@ -480,6 +492,7 @@ curl -X POST http://localhost:30500/predict \
 {"prediction":"positive","text":"Li Auto stock rises after record sales"}
 ```
 
+<br>
 <img width="865" height="395" alt="image" src="https://github.com/user-attachments/assets/404d2c5f-a646-4827-acff-2c954ae025bb" />
 <br>
 
@@ -489,3 +502,148 @@ curl -X POST http://localhost:30500/predict \
 - K8s 部署正常运行
 
 - NodePort 对外访问成功
+
+
+## 8. 自动扩缩容（HPA）
+
+为文本分类 API 配置 Kubernetes 自动扩缩容能力，使服务能够根据 CPU 压力自动调节 Pod 数量，从而实现弹性伸缩与高可用。
+
+### 8.1 启动与验证Metrics Server
+
+HPA 需要依赖 Metrics Server 提供 CPU/内存指标。
+
+检查状态：
+
+```bash
+kubectl get pods -n kube-system | grep metrics
+kubectl get apiservices | grep metrics
+```
+
+示例输出：
+
+```bash
+metrics-server-576c8c997c-61njk     1/1 Running
+v1beta1.metrics.k8s.io              True
+```
+表示 Metrics Server 正常运行
+
+
+检查节点和Pod CPU/内存：
+
+```bash
+kubectl top nodes
+kubectl top pods
+```
+
+示例：
+
+```bash
+financial-nlp-deploy   CPU(cores)=1m   Memory=1406Mi
+```
+说明 Metrics Server 可以正常获取指标 → HPA 可以使用。
+
+<br>
+<img width="865" height="180" alt="image" src="https://github.com/user-attachments/assets/df4a09da-1f9d-4c05-8f22-66e572d142e3" />
+<br>
+
+### 8.2 创建 HPA（目标 CPU：60%）
+
+使用自动化命令创建 HPA：
+
+```bash
+kubectl autoscale deployment financial-nlp-deploy \
+  --cpu-percent=60 \
+  --min=1 \
+  --max=5
+```
+
+<br>
+<img width="865" height="95" alt="image" src="https://github.com/user-attachments/assets/f14628a4-c2b1-44a4-a3ae-1a33801ae2db" />
+<br>
+
+
+查看：
+
+```bash
+kubectl get hpa
+```
+
+初始状态：
+```bash
+NAME                TARGETS   MINPODS   MAXPODS
+financial-nlp-deploy  0%/60%      1         5
+```
+<br>
+<img width="865" height="238" alt="image" src="https://github.com/user-attachments/assets/95c4aa2f-5e39-4f3e-84df-082647323880" />
+<br>
+
+
+### 8.3 执行高并发压测（触发扩缩容）
+
+使用 10 个线程 × 每线程 20 次请求：
+
+```bash
+for j in {1..10}; do
+(
+    for i in {1..20}; do
+        curl -s -X POST http://localhost:30500/predict \
+        -H "Content-Type: application/json" \
+        -d '{"text":"Bank profits drop amid interest rate cuts"}' > /dev/null
+    done
+) &
+done
+
+wait
+echo "High Load Test Done"
+```
+
+约 200 次推理，可显著提升 CPU 使用率，适合触发 HPA。
+
+实时观察：
+
+```bash
+watch -n 2 kubectl get hpa
+watch -n 2 kubectl get pods
+```
+CPU 使用率上升：
+
+```bash
+TARGETS: 199%/60%
+```
+Pod 从 1 个扩容到 4 个：
+
+```bash
+financial-nlp-deploy-xxxxx   Running
+financial-nlp-deploy-xxxxx   Running
+financial-nlp-deploy-xxxxx   Running
+financial-nlp-deploy-xxxxx   Running
+```
+
+<br>
+<img width="865" height="308" alt="image" src="https://github.com/user-attachments/assets/19f4b2c5-82ae-4abb-b5af-b724777e2cf2" />
+<br>
+
+### 8.4 容灾验证（删除 Pod → 自动恢复）
+
+删除一个正在运行的 Pod：
+```bash
+kubectl delete pod financial-nlp-deploy-xxxxx
+```
+<br>
+<img width="865" height="56" alt="image" src="https://github.com/user-attachments/assets/d72e46a8-c91a-4b49-96b1-53f81471b779" />
+<br>
+
+观察：
+
+```bash
+Terminating...
+Running (新 Pod 启动)
+```
+
+说明 ReplicaSet 自动拉起新的 Pod，验证了 K8s 自愈能力。
+
+<br>
+<img width="865" height="169" alt="image" src="https://github.com/user-attachments/assets/1cf9e2db-b0c1-415d-b8d7-e70aacb453ca" />
+<br>
+<img width="865" height="211" alt="image" src="https://github.com/user-attachments/assets/821d15d9-fd29-4cb8-a279-1c2ae5ee90b4" />
+<br>
