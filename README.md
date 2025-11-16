@@ -57,7 +57,8 @@ FINANCIAL_NLP_PROJECT/
 <img width="865" height="734" alt="image" src="https://github.com/user-attachments/assets/b0e89825-80a3-41d6-8918-617ebdffd18d" />
 <br> 
 数据准备脚本（data_preparation.py）完成了以下任务：
-逐行解析原始 TXT 文件
+
+- 逐行解析原始 TXT 文件
 
 - 移除标签标记（@positive / @negative / @neutral）
 
@@ -82,7 +83,106 @@ data/val.csv
 
 ### 4.2 模型训练
 
-### 4.3 模型推理
+项目使用 BERT-base-uncased 作为文本编码模型，并在其基础上微调金融文本情感分类任务（positive / negative / neutral）。训练脚本位于 train.py。
+
+#### 4.2.1 模型数据加载
+
+训练脚本使用 FinancialDataset 类对文本进行编码：
+
+```bash
+encodings = tokenizer(text,
+                      truncation=True,
+                      padding="max_length",
+                      max_length=128,
+                      return_tensors="pt")
+```
+
+该步骤完成：
+
+- tokenization：将文本拆成 BERT 的 token
+
+- 转换 token IDs：映射为数字序列
+
+- 生成 attention_mask：标记有效 token
+
+- 固定长度（padding/truncation）：保证 batch 尺寸一致
+
+随后由 DataLoader 生成 batch 数据用于训练。
+
+#### 4.2.2 模型定义
+
+使用 HuggingFace Transformers 提供的预训练模型：
+
+```bash
+model = AutoModelForSequenceClassification.from_pretrained(
+    MODEL_NAME,
+    num_labels=len(label_encoder.classes_)
+)
+```
+
+此处完成：
+
+- 加载预训练 BERT 模型（encoder 部分参数已训练）
+
+- 创建随机初始化的分类头（Linear 层）
+
+- 设置输出类别数量 num_labels=3（即nn.Linear(768, 3)）
+
+设置优化器 optimizer 与学习率调度器 scheduler
+
+#### 4.2.3 训练循环
+
+训练过程包括前向传播、反向传播和参数优化：
+
+```bash
+outputs = model(**inputs)
+loss = outputs.loss
+loss.backward()
+
+optimizer.step()
+scheduler.step()
+optimizer.zero_grad()
+```
+同时每个 epoch 结束后会在验证集上计算准确率：
+
+```bash
+preds = torch.argmax(outputs.logits, dim=1)
+acc = (preds == labels).float().mean()
+```
+
+确保模型在训练过程中不断评估性能，避免过拟合。
+
+训练过程中会输出：
+
+- 每个 batch 的 loss
+
+- 每个 epoch 的平均 loss
+
+- 验证集准确率
+
+<img width="865" height="303" alt="image" src="https://github.com/user-attachments/assets/b518e1b7-da62-4f75-8b12-23d6592abad0" />
+<br>
+
+### 4.3 模型输出与测试
+
+训练结束后，模型权重与标签编码器会保存到 model/ 目录
+
+保存代码：
+
+```bash
+torch.save(model.state_dict(), "model/model.pth")
+joblib.dump(label_encoder, "model/label_encoder.pkl")
+```
+
+这些文件将在推理 API (app.py) 中被加载。
+
+模型推理测试：
+
+<img width="865" height="145" alt="image" src="https://github.com/user-attachments/assets/13a5ac9b-648f-4c20-9ba9-1e7074c7b01d" />
+<br>
+结果符合预期
+
+
 
 
 
