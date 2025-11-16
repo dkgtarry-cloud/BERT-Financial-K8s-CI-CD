@@ -1,4 +1,4 @@
-## 1.项目简介
+## 1. 项目简介
 
 本项目构建了一个基于 BERT + PyTorch 的金融文本情感分类模型，并通过 Flask API 提供推理服务。模型及服务进一步被封装为 Docker 镜像，最终部署到 Kubernetes 集群，并支持：
 
@@ -12,13 +12,13 @@
 数据 → 模型训练 → 推理 API → Docker 化 → K8s 部署 → 自动伸缩 → CI/CD → 监控
 
 
-## 2.项目架构
+## 2. 项目架构
 
 <img width="1536" height="1024" alt="image" src="https://github.com/user-attachments/assets/dfafd0ee-0200-4f62-ac07-62245c874823" />
 <br> 
 
 
-## 3.文件结构
+## 3. 文件结构
 
 ```bash
 FINANCIAL_NLP_PROJECT/
@@ -43,7 +43,7 @@ FINANCIAL_NLP_PROJECT/
 ```
 
 
-## 4.模型训练
+## 4. 模型训练
 
 ### 4.1 数据清洗
 
@@ -189,7 +189,7 @@ predict.py 'Xiaomi car sales reach a new high, with users generally expressing h
 结果符合预期。
 <br>
 
-## 5.模型推理 API
+## 5. 模型推理 API
 
 本项目使用 Flask 封装 BERT 文本分类模型，提供 REST 风格推理接口，实现在线预测能力。
 
@@ -270,7 +270,7 @@ pred = torch.argmax(outputs.logits, dim=1).item()
 label_name = label_encoder.inverse_transform([pred])[0]
 ```
 
-### 5.3 Docker 部署
+## 6. Docker 部署
 
 Dockerfile：
 
@@ -297,7 +297,7 @@ CMD ["python", "app.py"]
 
 - 默认启动 Flask API
 
-### 5.4 构建与运行 Docker
+### 6.1 构建与运行 Docker
 
 1）构建镜像
 
@@ -320,7 +320,7 @@ docker run -d -p 5000:5000 financial-nlp-api:v1
 <img width="865" height="24" alt="image" src="https://github.com/user-attachments/assets/0117aba9-4412-469c-8e45-4e806982cc3d" />
 <br>
 
-3）测试容器服务
+### 6.2 测试容器服务
 
 中性新闻示例
 
@@ -340,6 +340,152 @@ curl -X POST http://127.0.0.1:5000/predict \
 
 
 <img width="865" height="53" alt="image" src="https://github.com/user-attachments/assets/e70649bc-59ee-4e60-87ba-19cd64e55ac1" />
+<br>
+
+## 7.模型推理 API
+
+将训练好的金融文本分类 API 以容器形式部署到 Kubernetes 集群，实现服务化运行与集群级管理。
+
+### 7.1 Deployment 配置（deployment.yaml）
+
+Deployment 用于定义：
+
+- 容器镜像
+
+- 副本数量（replicas）
+
+- 容器端口
+
+- 资源限制
+
+- 自动重启策略
+
+```bash
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: financial-nlp-deploy
+  labels:
+    app: financial-nlp
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: financial-nlp
+  template:
+    metadata:
+      labels:
+        app: financial-nlp
+    spec:
+      containers:
+        - name: financial-nlp
+          image: financial-nlp-api:v1
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 5000
+          resources:
+            limits:
+              cpu: "500m"
+              memory: "1Gi"
+            requests:
+              cpu: "1"
+              memory: "2Gi"
+```  
+
+### 7.2 Service 配置（service.yaml）
+
+通过 NodePort 方式对外暴露 API
+
+```bash
+apiVersion: v1
+kind: Service
+metadata:
+  name: financial-nlp-svc
+spec:
+  type: NodePort
+  selector:
+    app: financial-nlp
+  ports:
+    - port: 5000
+      targetPort: 5000
+      nodePort: 30500
+```
+
+说明：
+
+- 外部访问端口：30500
+
+- 集群内部服务端口：5000
+
+- 选择器与 Deployment 保持一致，通过标签 app=financial-nlp 匹配 Pod
 
 
+### 7.3 应用部署配置
 
+应用 Deployment 与 Service：
+
+```bash
+kubectl apply -f deployment.yaml
+kubectl apply -f service.yaml
+```
+
+<img width="865" height="203" alt="image" src="https://github.com/user-attachments/assets/91ac3ec6-9047-4096-a371-1cf44aa409a4" />
+<br>
+ 
+初次部署截图显示： ErrImagePull
+
+进入Pod 内部验证
+
+```bash
+kubectl exec -it financial-nlp-deploy-xxx -- sh
+python app.py
+```
+
+初次运行报错（无法访问 huggingface.co）：
+
+```bash
+ReadTimeout: thrown while requesting HEAD https://huggingface.co/...
+```
+
+<img width="865" height="239" alt="image" src="https://github.com/user-attachments/assets/8eaa2c8f-3950-4953-aba3-24d42fa2b766" />
+<br>
+
+原因：
+容器内不能访问外网 → tokenizer 和模型未下载。
+
+解决方案：
+提前将模型/ tokenizer 下载到本地并打包进镜像（通过 Download_model.py 解决）。
+
+### 7.4 使用 NodePort 本地访问服务
+
+查询 Service：
+```bash
+kubectl get svc financial-nlp-svc
+```
+
+输出示例：
+```bash
+financial-nlp-svc   NodePort   5000:30500/TCP
+```
+
+在宿主机上测试：
+```bash
+curl -X POST http://localhost:30500/predict \
+-H "Content-Type: application/json" \
+-d '{"text":"Li Auto stock rises after record sales"}'
+```
+
+返回：
+```bash
+{"prediction":"positive","text":"Li Auto stock rises after record sales"}
+```
+
+<img width="865" height="395" alt="image" src="https://github.com/user-attachments/assets/404d2c5f-a646-4827-acff-2c954ae025bb" />
+<br>
+
+说明：
+- Pod 内模型成功加载
+
+- K8s 部署正常运行
+
+- NodePort 对外访问成功
