@@ -1,4 +1,4 @@
-## 项目简介
+## 1.项目简介
 
 本项目构建了一个基于 BERT + PyTorch 的金融文本情感分类模型，并通过 Flask API 提供推理服务。模型及服务进一步被封装为 Docker 镜像，最终部署到 Kubernetes 集群，并支持：
 
@@ -12,13 +12,14 @@ CI/CD 自动部署（Jenkins + Harbor）
 数据 → 模型训练 → 推理 API → Docker 化 → K8s 部署 → 自动伸缩 → CI/CD → 监控
 
 
-## 项目架构
+## 2.项目架构
 
 <img width="1536" height="1024" alt="image" src="https://github.com/user-attachments/assets/dfafd0ee-0200-4f62-ac07-62245c874823" />
 <br> 
 
 
-## 文件结构
+## 3.文件结构
+<br> 
 ```bash
 FINANCIAL_NLP_PROJECT/
 ├── data/
@@ -40,9 +41,15 @@ FINANCIAL_NLP_PROJECT/
 ├── Jenkinsfile                  # CI/CD 流水线
 └── requirements.txt
 ```
+<br> 
 
+## 4.模型训练
 
+### 4.1 数据清洗
 
+### 4.2 模型训练
+
+### 4.3 模型推理
 
 
 
