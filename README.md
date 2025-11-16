@@ -19,7 +19,6 @@ CI/CD 自动部署（Jenkins + Harbor）
 
 
 ## 3.文件结构
-<br> 
 
 ```bash
 FINANCIAL_NLP_PROJECT/
